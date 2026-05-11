@@ -38,9 +38,15 @@ jobs:
                   exit-code: "1"
               continue-on-error: true
 
+            - name: Set tool name in SARIF
+              if: always()
+              run: |
+                  jq '.runs[].tool.driver.name = "Trivy (${{ matrix.dockerfile }})"' \
+                    trivy-results.sarif > trivy-labeled.sarif
+
             - name: Upload SARIF to GitHub Security tab
               uses: github/codeql-action/upload-sarif@v3
               if: always()
               with:
-                  sarif_file: trivy-results.sarif
+                  sarif_file: trivy-labeled.sarif
                   category: trivy-${{ matrix.dockerfile }}
