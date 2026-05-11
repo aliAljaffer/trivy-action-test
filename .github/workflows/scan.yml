@@ -1,0 +1,44 @@
+name: scan with trivy
+
+on:
+    push:
+        branches: [main]
+
+permissions:
+    security-events: write
+
+jobs:
+    scan:
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - dockerfile: Dockerfile.vulnerable
+                      image: demo-app:vulnerable
+                    - dockerfile: Dockerfile.updated
+                      image: demo-app:updated
+        steps:
+            - name: Checkout repo
+              uses: actions/checkout@v5
+
+            - name: Build Docker image
+              run: docker build -f ${{ matrix.dockerfile }} -t ${{ matrix.image }} .
+
+            - name: Run Trivy scan
+              uses: aquasecurity/trivy-action@0.36.0
+              with:
+                  image-ref: ${{ matrix.image }}
+                  format: sarif
+                  output: trivy-results.sarif
+                  severity: CRITICAL,HIGH
+                  ignore-unfixed: true
+                  exit-code: "1"
+              continue-on-error: true
+
+            - name: Upload SARIF to GitHub Security tab
+              uses: github/codeql-action/upload-sarif@v3
+              if: always()
+              with:
+                  sarif_file: trivy-results.sarif
+                  category: trivy-${{ matrix.dockerfile }}
